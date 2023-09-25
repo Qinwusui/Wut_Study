@@ -1,6 +1,7 @@
 package me.wtuer.study.ui.screen
 
-import android.annotation.SuppressLint
+import android.app.Activity
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -15,9 +16,13 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.twotone.Shuffle
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -28,6 +33,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -40,28 +46,42 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.view.WindowCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.google.accompanist.systemuicontroller.rememberSystemUiController
 import me.wtuer.study.primaryColor
+import me.wtuer.study.toast
 import me.wtuer.study.viewmodel.MainViewModel
 import me.wtuer.study.viewmodel.UIState
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalComposeUiApi::class)
-@SuppressLint("UnusedMaterialScaffoldPaddingParameter", "UnusedMaterial3ScaffoldPaddingParameter")
 @Composable
 fun NavScreen(
     mainViewModel: MainViewModel = viewModel()
 ) {
-    val uiState by mainViewModel.bookList.collectAsState()
+    LaunchedEffect(key1 = Unit) {
+        mainViewModel.requestFavBookList()
+    }
+    val systemUiController = rememberSystemUiController()
+    val context = LocalContext.current
+    SideEffect {
+        systemUiController.setSystemBarsColor(primaryColor)
+    }
+    val bookList by mainViewModel.bookList.collectAsState()
+    val favList by mainViewModel.favBookList.collectAsState()
+    val navigator = rememberNavController()
     var showSearchInput by remember {
         mutableStateOf(false)
     }
@@ -71,82 +91,243 @@ fun NavScreen(
     var text by rememberSaveable {
         mutableStateOf("")
     }
-    val navigator = rememberNavController()
-    val systemUiController = rememberSystemUiController()
-    SideEffect {
-        systemUiController.setSystemBarsColor(primaryColor)
-    }
+
+
     val keyboardController = LocalSoftwareKeyboardController.current
+
+    var title by rememberSaveable {
+        mutableStateOf("题库")
+    }
+    var showRandomButton by remember {
+        mutableStateOf(false)
+    }
+    var showModeChangeButton by remember {
+        mutableStateOf(false)
+    }
+    var inReadMode by rememberSaveable {
+        mutableStateOf(true)
+    }
+    var showFavButton by remember {
+        mutableStateOf(true)
+    }
+    var showTopBar by remember {
+        mutableStateOf(true)
+    }
+    var showBackButton by remember {
+        mutableStateOf(false)
+    }
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(text = "博学题库", maxLines = 1, overflow = TextOverflow.Ellipsis)
-                },
-                actions = {
-                    AnimatedVisibility(
-                        visible = showSearchInput,
-                        modifier = Modifier.weight(1f, false)
-                    ) {
-                        SearchInput(
-                            text = text,
-                            modifier = Modifier
-                                .weight(1f)
-                                .wrapContentHeight(),
-                            onValueChange = { text = it },
-                            onSearch = {
-                                keyboardController?.hide()
-                                mainViewModel.searchBook(text)
-                            },
-                            onClear = {
-                                text = ""
-                                keyboardController?.hide()
-
-                                mainViewModel.requestBooks()
+            AnimatedVisibility(visible = showTopBar) {
+                TopAppBar(
+                    title = {
+                        Text(text = title, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    },
+                    actions = {
+                        AnimatedVisibility(
+                            visible = showSearchInput,
+                            modifier = Modifier.weight(1f, false)
+                        ) {
+                            SearchInput(
+                                text = text,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .wrapContentHeight(),
+                                onValueChange = { text = it },
+                                onSearch = {
+                                    keyboardController?.hide()
+                                    mainViewModel.searchBook(text)
+                                },
+                                onClear = {
+                                    text = ""
+                                    keyboardController?.hide()
+                                    showSearchInput = false
+                                    showSearchButton = true
+                                    showTopBar = true
+                                    mainViewModel.requestBooks()
+                                }
+                            )
+                        }
+                        AnimatedVisibility(
+                            visible = showSearchButton,
+                            modifier = Modifier.weight(0.3f, false)
+                        ) {
+                            IconButton(onClick = {
+                                showSearchInput = !showSearchInput
+                                showSearchButton = !showSearchButton
+                            }) {
+                                Icon(imageVector = Icons.Default.Search, contentDescription = null)
                             }
-                        )
-                    }
-                    AnimatedVisibility(
-                        visible = showSearchButton,
-                        modifier = Modifier.weight(0.3f, false)
-                    ) {
-                        IconButton(onClick = {
-                            showSearchInput = !showSearchInput
-                            showSearchButton = !showSearchButton
-                        }) {
-                            Icon(imageVector = Icons.Default.Search, contentDescription = null)
+                        }
+                        AnimatedVisibility(visible = showRandomButton) {
+                            IconButton(onClick = {
+                                "随机30题".toast()
+                                mainViewModel.randomBookQuestion()
+                            }) {
+                                Icon(imageVector = Icons.TwoTone.Shuffle, contentDescription = null)
+                            }
+                        }
+                        AnimatedVisibility(visible = showModeChangeButton) {
+                            IconButton(onClick = {
+                                inReadMode = !inReadMode
+                                if (inReadMode) {
+                                    "看题模式"
+                                } else {
+                                    "刷题模式"
+                                }.toast()
+                            }) {
+                                Icon(
+                                    imageVector = if (inReadMode) Icons.Default.EditNote else Icons.Default.Edit,
+                                    contentDescription = null
+                                )
+                            }
+                        }
+                        AnimatedVisibility(visible = showBackButton) {
+                            IconButton(onClick = {
+                                showBackButton = false
+                                showFavButton = true
+                                navigator.popBackStack()
+                            }) {
+                                Icon(
+                                    imageVector = Icons.Default.ArrowBack,
+                                    contentDescription = null
+                                )
+                            }
+                        }
+                        AnimatedVisibility(visible = showFavButton) {
+                            IconButton(onClick = {
+                                showFavButton = false
+                                showBackButton = true
+                                navigator.popBackStack("fav", true)
+                                navigator.navigate("fav")
+                                title = "收藏"
+                            }) {
+                                Icon(
+                                    imageVector = Icons.Default.Favorite,
+                                    contentDescription = null
+                                )
+                            }
                         }
                     }
-                    IconButton(onClick = {
+                )
+            }
+        },
 
-                    }) {
-                        Icon(imageVector = Icons.Default.Favorite, contentDescription = null)
-                    }
-                }
-            )
-        }
-    ) { padding ->
-        NavHost(navController = navigator, startDestination = "main") {
-            composable("main") {
-                when (uiState) {
+        ) { padding ->
+        NavHost(navController = navigator, startDestination = "bookList") {
+            composable("bookList") {
+                when (bookList) {
                     is UIState.OnLoading -> LoadingScreen()
-                    is UIState.OnError -> ErrorScreen(uiState as UIState.OnError)
+                    is UIState.OnError -> ErrorScreen(bookList as UIState.OnError)
                     is UIState.OnFinished -> BookListScreen(
-                        padding,
-                        (uiState as UIState.OnFinished)
+                        padding = padding,
+                        state = (bookList as UIState.OnFinished),
+                        onItemClick = {
+                            title = it.replace(".json", "")
+                            showSearchButton = false
+                            showSearchInput = false
+                            showFavButton = false
+                            navigator.navigate("book/$it")
+                        },
+                        onItemLongPress = {
+                            "${it.replace(".json", "")} 添加成功".toast()
+                            mainViewModel.addBook(it)
+                        }
                     )
 
-                    is UIState.OnEmpty -> EmptyScreen(text = (uiState as UIState.OnEmpty).text)
+                    is UIState.OnEmpty -> EmptyScreen(text = (bookList as UIState.OnEmpty).text)
                 }
             }
-            composable("book") {
+            composable("fav") { _ ->
+                FavourScreen(
+                    favList = favList,
+                    paddingValues = padding,
+                    onItemClick = {
+                        title = it.replace(".json", "")
+                        showSearchButton = false
+                        showFavButton = false
 
+                        navigator.navigate("book/$it")
+                    },
+                    onBackPressed = {
+                        title = "题库"
+                        showBackButton = false
+                        showSearchButton = true
+                        showFavButton = true
+                        showTopBar = true
+                        showRandomButton = false
+                        showModeChangeButton = false
+                        navigator.popBackStack()
+
+                    },
+                    onItemLongPress = {
+                        "${it.replace(".json", "")} 移除成功".toast()
+                        mainViewModel.deleteBook(it)
+                    },
+                    setTitle = {
+                        title = it
+                        showRandomButton = false
+                        showModeChangeButton = false
+                    }
+                )
+            }
+            composable(
+                route = "book/{bookName}",
+                arguments = listOf(
+                    navArgument("bookName") {
+                        type = NavType.StringType
+                    }
+                )) { navBackStackEntry ->
+                if (navBackStackEntry.arguments != null) {
+
+                    BookScreen(
+                        padding = padding,
+                        bookName = navBackStackEntry.arguments!!.getString("bookName", "")!!,
+                        readMode = inReadMode,
+                        mainViewModel = mainViewModel,
+                        onBackPressed = {
+                            showTopBar = true
+                            showSearchButton = true
+                            showFavButton = true
+
+                            showRandomButton = false
+                            showModeChangeButton = false
+                            navigator.popBackStack()
+
+
+                        },
+                        setTitle = {
+                            title = it
+                            showRandomButton = true
+                            showModeChangeButton = true
+                            showBackButton = false
+                        },
+                        currentTopItemIndex = {
+                            showTopBar = it == 0
+                            if (!showTopBar) {
+                                WindowCompat.setDecorFitsSystemWindows(
+                                    (context as Activity).window,
+                                    false
+                                )
+                            }
+                            systemUiController.setSystemBarsColor(
+                                color = if (showTopBar) primaryColor else Color.Transparent,
+                                !showTopBar
+                            )
+
+                        }
+                    )
+                } else {
+                    ErrorScreen(onError = UIState.OnError(Exception("啊偶，好像没有找到这本书哦")))
+                }
             }
         }
 
     }
-
+    BackHandler {
+        (context as Activity).moveTaskToBack(false)
+    }
 }
 
 @Composable

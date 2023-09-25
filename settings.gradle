@@ -14,5 +14,5 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "Wut_Study"
+rootProject.name = "梅职一题"
 include ':app'
