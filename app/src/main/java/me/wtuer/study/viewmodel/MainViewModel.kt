@@ -91,6 +91,11 @@ class MainViewModel : ViewModel() {
                 } else {
                     UIState.OnFinished(Books(bookList = searchList))
                 }
+
+            } else {
+                _booksList.value = UIState.OnError(Exception("啊偶，书籍加载出错了..."))
+            }
+            if (_favBookList.value is UIState.OnFinished) {
                 val favList = (_favBookList.value as UIState.OnFinished).data.bookList
                 _favBookList.value = UIState.OnLoading
                 delay(300)
@@ -103,8 +108,8 @@ class MainViewModel : ViewModel() {
                     UIState.OnFinished(Books(bookList = searchFavList))
                 }
             } else {
-                _booksList.value = UIState.OnError(Exception("啊偶，书籍加载出错了..."))
                 _favBookList.value = UIState.OnError(Exception("啊偶，书籍加载出错了..."))
+
             }
 
         }
